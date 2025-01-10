@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# 履歴ファイルの場所
+HISTORY_FILE="$HOME/.rsync_destinations"
+
+# 引数から検索場所を指定、デフォルトはカレントディレクトリ
+SEARCH_DIR=${1:-.}
+
+# 検索場所が存在しない場合のエラーメッセージ
+if [ ! -d "$SEARCH_DIR" ]; then
+    echo "Error: Directory '$SEARCH_DIR' does not exist."
+    exit 1
+fi
+
+# 転送元ファイルを選択
+echo "Searching in: $SEARCH_DIR"
+echo "Select the file to transfer:"
+SOURCE_FILE=$(find "$SEARCH_DIR" -type f | fzf)
+if [ -z "$SOURCE_FILE" ]; then
+    echo "No file selected."
+    exit 1
+fi
+
+# 転送先を選択
+echo "Select or enter the destination:"
+if [ -f "$HISTORY_FILE" ]; then
+    DESTINATION=$(cat "$HISTORY_FILE" | fzf --prompt "Select destination: " --preview "echo {}")
+else
+    echo "No history found. Please enter a destination."
+    DESTINATION=""
+fi
+
+# 入力も可能にする
+if [ -z "$DESTINATION" ]; then
+    read -p "Enter destination (e.g., user@remote:/path/to/destination): " DESTINATION
+fi
+
+# 履歴に送信先を追加
+if ! grep -Fxq "$DESTINATION" "$HISTORY_FILE"; then
+    echo "$DESTINATION" >> "$HISTORY_FILE"
+fi
+
+# 転送実行
+echo "Transferring $SOURCE_FILE to $DESTINATION..."
+rsync -avz "$SOURCE_FILE" "$DESTINATION"
+echo "Transfer completed."
